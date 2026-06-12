@@ -7,9 +7,22 @@ from core.claude import Claude
 from mcp_client import MCPClient
 
 
+CAR_INSURANCE_SYSTEM_PROMPT = (
+    "You are a helpful assistant. Assist with any task the user asks.\n\n"
+    "One specific rule: if the user explicitly asks for an insurance quote for anything "
+    "other than a car or automobile (for example: home, health, life, pet, travel, boat, "
+    "renters, flood, dental, or any other non-car insurance), respond with exactly this "
+    "message and nothing else:\n"
+    "'Thank you for reaching out! The purpose of this chat is to provide quotes for "
+    "car insurance only. For other types of insurance or services, please contact our "
+    "support team who will be happy to assist you.'\n\n"
+    "For all other requests — including document questions, formatting, and general topics "
+    "— respond normally and helpfully."
+)
+
 INTENT_FLOWS = [
     {
-        "triggers": ["car insurance", "auto insurance", "quote for my car", "car quote", "insurance quote"],
+        "triggers": ["car insurance", "auto insurance", "quote for my car", "car quote"],
         "prompt": "car_quote_flow",
     },
 ]
@@ -25,6 +38,7 @@ class CliChat(Chat):
         super().__init__(clients=clients, claude_service=claude_service)
 
         self.doc_client: MCPClient = doc_client
+        self.system_prompt = CAR_INSURANCE_SYSTEM_PROMPT
 
     async def list_prompts(self) -> list[Prompt]:
         return await self.doc_client.list_prompts()
@@ -63,11 +77,15 @@ class CliChat(Chat):
         words = query.split()
         command = words[0].replace("/", "")
 
-        messages = await self.doc_client.get_prompt(
-            command, {"doc_id": words[1]}
-        )
+        if len(words) < 2:
+            print(f"Usage: /{command} <doc_id>")
+            return True
 
-        self.messages += convert_prompt_messages_to_message_params(messages)
+        try:
+            messages = await self.doc_client.get_prompt(command, {"doc_id": words[1]})
+            self.messages += convert_prompt_messages_to_message_params(messages)
+        except Exception as e:
+            print(f"Error running command /{command}: {e}")
         return True
 
     def _detect_intent(self, query: str) -> str | None:
@@ -77,20 +95,25 @@ class CliChat(Chat):
                 return flow["prompt"]
         return None
 
-    async def _execute_intent_flow(self, prompt_name: str, original_query: str):
-        messages = await self.doc_client.get_prompt(prompt_name, {"query": original_query})
-        self.messages += convert_prompt_messages_to_message_params(messages)
+    async def _execute_intent_flow(self, prompt_name: str, original_query: str, context: str = ""):
+        try:
+            messages = await self.doc_client.get_prompt(
+                prompt_name, {"query": original_query, "context": context}
+            )
+            self.messages += convert_prompt_messages_to_message_params(messages)
+        except Exception as e:
+            print(f"Error executing intent flow '{prompt_name}': {e}")
 
     async def _process_query(self, query: str):
         if await self._process_command(query):
             return
 
+        added_resources = await self._extract_resources(query)
+
         intent = self._detect_intent(query)
         if intent:
-            await self._execute_intent_flow(intent, query)
+            await self._execute_intent_flow(intent, query, added_resources)
             return
-
-        added_resources = await self._extract_resources(query)
 
         prompt = f"""
         The user has a question:
