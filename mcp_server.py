@@ -88,6 +88,25 @@ def format_document(
 
 # TODO: Write a prompt to summarize a doc
 
+@mcp.prompt(
+    name="car_quote_flow",
+    description="Triggered automatically when a user requests a car insurance quote"
+)
+def car_insurance_quote_flow(
+    query: str = Field(default="", description="The user's original message")
+) -> list[base.Message]:
+    instructions = (
+        f'The user said: "{query}"\n\n'
+        "They are requesting a car insurance quote. Follow this script exactly:\n"
+        "1. Greet them warmly: 'Hello!'\n"
+        "2. Confirm you can help: 'Sure, we can help you with a car insurance quote!'\n"
+        "3. Ask for the required information in one friendly message:\n"
+        "   - Car description (make, model, year)\n"
+        "   - Zip code\n"
+        "   - Age"
+    )
+    return [base.UserMessage(instructions)]
+
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

@@ -7,6 +7,14 @@ from core.claude import Claude
 from mcp_client import MCPClient
 
 
+INTENT_FLOWS = [
+    {
+        "triggers": ["car insurance", "auto insurance", "quote for my car", "car quote", "insurance quote"],
+        "prompt": "car_quote_flow",
+    },
+]
+
+
 class CliChat(Chat):
     def __init__(
         self,
@@ -62,8 +70,24 @@ class CliChat(Chat):
         self.messages += convert_prompt_messages_to_message_params(messages)
         return True
 
+    def _detect_intent(self, query: str) -> str | None:
+        query_lower = query.lower()
+        for flow in INTENT_FLOWS:
+            if any(trigger in query_lower for trigger in flow["triggers"]):
+                return flow["prompt"]
+        return None
+
+    async def _execute_intent_flow(self, prompt_name: str, original_query: str):
+        messages = await self.doc_client.get_prompt(prompt_name, {"query": original_query})
+        self.messages += convert_prompt_messages_to_message_params(messages)
+
     async def _process_query(self, query: str):
         if await self._process_command(query):
+            return
+
+        intent = self._detect_intent(query)
+        if intent:
+            await self._execute_intent_flow(intent, query)
             return
 
         added_resources = await self._extract_resources(query)
