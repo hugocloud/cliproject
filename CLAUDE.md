@@ -61,3 +61,7 @@ The app is an async CLI chat client that connects Claude to one or more MCP serv
 **Adding MCP features:** Add tools/resources/prompts in `mcp_server.py` using the `@mcp.tool`, `@mcp.resource`, and `@mcp.prompt` decorators.
 
 **Adding a new MCP server:** Pass its script path as a CLI argument to `main.py`; it will be auto-connected and its tools made available to Claude.
+
+## Business Rules
+- Car insurance quote flow is restricted to car queries only (no home/life)
+- All MCP prompts must sanitize user input with XML tags
