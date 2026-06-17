@@ -1,3 +1,4 @@
+import re
 from typing import List, Tuple
 from mcp.types import Prompt, PromptMessage
 from anthropic.types import MessageParam
@@ -55,7 +56,13 @@ class CliChat(Chat):
         return await self.doc_client.get_prompt(command, {"doc_id": doc_id})
 
     async def _extract_resources(self, query: str) -> str:
+        # Short-circuit before any MCP round-trip when there's nothing to mention.
+        if "@" not in query:
+            return ""
+
         mentions = [word[1:] for word in query.split() if word.startswith("@")]
+        if not mentions:
+            return ""
 
         doc_ids = await self.list_docs_ids()
         mentioned_docs: list[Tuple[str, str]] = []
@@ -78,21 +85,34 @@ class CliChat(Chat):
         command = words[0].replace("/", "")
 
         if len(words) < 2:
-            print(f"Usage: /{command} <doc_id>")
+            # Append a message so Chat.run never sends an empty messages list.
+            self.messages.append(
+                {"role": "user", "content": f"Usage: /{command} <doc_id>"}
+            )
             return True
 
         try:
             messages = await self.doc_client.get_prompt(command, {"doc_id": words[1]})
             self.messages += convert_prompt_messages_to_message_params(messages)
         except Exception as e:
-            print(f"Error running command /{command}: {e}")
+            # Surface the failure as a message so the turn still has valid input.
+            self.messages.append(
+                {
+                    "role": "user",
+                    "content": f"The command /{command} failed to run: {e}",
+                }
+            )
         return True
 
     def _detect_intent(self, query: str) -> str | None:
         query_lower = query.lower()
         for flow in INTENT_FLOWS:
-            if any(trigger in query_lower for trigger in flow["triggers"]):
-                return flow["prompt"]
+            for trigger in flow["triggers"]:
+                # Word-boundary match so "car insurance is a scam" or
+                # "cancel my car insurance" don't falsely trigger the quote flow.
+                pattern = r"\b" + re.escape(trigger.lower()) + r"\b"
+                if re.search(pattern, query_lower):
+                    return flow["prompt"]
         return None
 
     async def _execute_intent_flow(self, prompt_name: str, original_query: str, context: str = ""):
@@ -102,7 +122,16 @@ class CliChat(Chat):
             )
             self.messages += convert_prompt_messages_to_message_params(messages)
         except Exception as e:
-            print(f"Error executing intent flow '{prompt_name}': {e}")
+            # Fall back to the raw query so Chat.run always has valid input.
+            self.messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"{original_query}\n\n"
+                        f"(Note: the quote flow '{prompt_name}' could not be loaded: {e})"
+                    ),
+                }
+            )
 
     async def _process_query(self, query: str):
         if await self._process_command(query):
