@@ -65,3 +65,4 @@ The app is an async CLI chat client that connects Claude to one or more MCP serv
 ## Business Rules
 - Car insurance quote flow is restricted to car queries only (no home/life)
 - All MCP prompts must sanitize user input with XML tags
+- Personal loan request flow collects name, phone number, and whether the amount exceeds 1000 USD

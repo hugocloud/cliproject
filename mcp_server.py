@@ -109,5 +109,27 @@ def car_insurance_quote_flow(
     return [base.UserMessage(instructions)]
 
 
+@mcp.prompt(
+    name="loan_request_flow",
+    description="Triggered automatically when a user requests a personal loan"
+)
+def personal_loan_request_flow(
+    query: str = Field(default="", description="The user's original message"),
+    context: str = Field(default="", description="Content from @mentioned documents"),
+) -> list[base.Message]:
+    context_block = f"\n\n<context>\n{context}\n</context>" if context else ""
+    instructions = (
+        f"<user_message>\n{query}\n</user_message>{context_block}\n\n"
+        "The user is requesting a personal loan. Follow this script exactly:\n"
+        "1. Greet them warmly: 'Hello!'\n"
+        "2. Confirm you can help: 'Sure, we can help you with your personal loan request!'\n"
+        "3. Ask for the required information in one friendly message:\n"
+        "   - Full name\n"
+        "   - Phone number\n"
+        "   - Whether the requested amount exceeds 1000 USD (Y/N)"
+    )
+    return [base.UserMessage(instructions)]
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

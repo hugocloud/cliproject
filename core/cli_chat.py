@@ -26,6 +26,10 @@ INTENT_FLOWS = [
         "triggers": ["car insurance", "auto insurance", "quote for my car", "car quote"],
         "prompt": "car_quote_flow",
     },
+    {
+        "triggers": ["personal loan", "loan request", "request a loan", "apply for a loan", "need a loan"],
+        "prompt": "loan_request_flow",
+    },
 ]
 
 
