@@ -65,3 +65,13 @@ The app is an async CLI chat client that connects Claude to one or more MCP serv
 ## Business Rules
 - Car insurance quote flow is restricted to car queries only (no home/life)
 - All MCP prompts must sanitize user input with XML tags
+
+## Test Plan
+- Ran the app end-to-end (driving `CliChat`/MCP flow the same way the CLI REPL does) and confirmed:
+  - "I want to request a personal loan" → greet, confirm, ask for name/phone/amount-over-1000 script
+  - "I need a loan for a car purchase" → still routes to the loan flow, not blocked by the car-insurance-only system prompt
+  - "Can I get a book on loan from the library?" → does not trigger the loan flow, falls through to normal conversation
+  - "I'd like a car insurance quote" → unchanged car-quote script (no regression)
+  - "Can I get a home insurance quote?" → still gets the car-insurance-only rejection message (no regression)
+  - `/` tab-completion lists `loan_request_flow` alongside `car_quote_flow` and `format`
+- Note: verified that an existing pre-change quirk ("cancel my car insurance" matching `car_quote_flow` despite an inline comment claiming otherwise) is unchanged/pre-existing on master and unrelated to this diff — confirmed by testing against unmodified master code directly.
